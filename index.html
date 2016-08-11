@@ -378,10 +378,841 @@
 						當搜索回到root節點時，搜索完成，得到最近鄰節點。
 					</div>
 				</section>
+				<section data-markdown>
+					<script type="text/template">
+						## 歐基里德距離
+						如果要找歐基里德距離只需要修改point裡的dist<br/>
+						跟heuristic即可
+						``` cpp
+						inline T dist(const point &x)const{
+							T ret=0;
+							for(size_t i=0;i<kd;++i)ret+=(d[i]-x.d[i])*(d[i]-x.d[i]);
+							return ret;
+						}
+						inline T heuristic(const T h[])const{
+							T ret=0;
+							for(size_t i=0;i<kd;++i)ret+=h[i]*h[i];
+							return ret;
+						}
+						```
+					</script>
+				</section>
 				<section>
 					<h2>複雜度</h2>
 					不管用甚麼方法最差情況還是會搜索到\(\ord{n^{1-1/kd}}\)個點<br/>
 					所以最差複雜度是\(\ord{n^{1-1/kd}}\)
+				</section>
+			</section>
+			<section>
+				k-d tree的基本操作大致上就這些了，如果想要更深入了解請參考<a href="http://sunmoon-template.blogspot.tw/2016/02/dynamic-kd-tree-kd.html" target="_blank">日月卦長的模板庫-動態kd樹模板</a>
+			</section>
+			<section>
+				<section>
+					<h2>k-d tree代替高維線段樹</h2>
+					單點修改區間查詢<br/>
+					以二維區間最大值為例
+				</section>
+				<section data-markdown>
+					<script type="text/template">
+						k-d tree只要在節點中紀錄這顆子樹的邊界<br/>
+						就可以做到和線段樹同樣的功能<br/>
+						``` cpp
+						#define MAXN 500
+						#define kd 2
+						struct point{
+							int d[kd];
+							point(int x,int y){
+								d[0]=x,d[1]=y;
+							}
+							bool operator==(const point &p){
+								return d[0]==p.d[0]&&d[1]==p.d[1];
+							}
+						};
+						struct node{
+							node *l,*r;
+							point pid,mi,ma;
+							int data,dmax;
+							node(const point &p,int d):l(0),r(0),pid(p),mi(p),ma(p),data(d),dmax(d){}
+							inline void up(){
+								mi=ma=pid;
+								if(l){
+									for(int i=0;i<kd;++i){
+										mi.d[i]=min(mi.d[i],l->mi.d[i]);
+										ma.d[i]=max(ma.d[i],l->ma.d[i]);
+									}
+								}
+								if(r){
+									for(int i=0;i<kd;++i){
+										mi.d[i]=min(mi.d[i],r->mi.d[i]);
+										ma.d[i]=max(ma.d[i],r->ma.d[i]);
+									}
+								}
+							}
+							inline void up2(){
+								dmax=data;
+								if(l)dmax=max(dmax,l->dmax);
+								if(r)dmax=max(dmax,r->dmax);
+							}
+						}*root;
+						```
+					</script>
+				</section>
+				<section>
+					構造、插入、刪除就不講了，之前講過了
+				</section>
+				<section data-markdown>
+					<script type="text/template">
+						單點更新
+						``` cpp
+						void update(node *u,const point &x,int data,int k=0){
+							if(u->pid==x){
+								u->data=data;
+								u->up2();
+								return;
+							}
+							cmp.sort_id=k;
+							if(cmp(x,u->pid))update(u->l,x,data,(k+1)%kd);
+							else update(u->r,x,data,(k+1)%kd);
+							u->up2();
+						}
+						```
+					</script>
+				</section>
+				<section data-markdown>
+					<script type="text/template">
+						區間查詢
+						``` cpp
+						inline bool range_include(node *o,const point &L,const point &R){
+							for(int i=0;i<kd;++i){
+								if(L.d[i]>o->ma.d[i]||R.d[i]<o->mi.d[i])return false;
+							}//只要(L,R)區間有和o的區間有交集就回傳true
+							return true;
+						}
+						inline bool range_in_range(node *o,const point &L,const point &R){
+							for(int i=0;i<kd;++i){
+								if(L.d[i]>o->mi.d[i]||o->ma.d[i]>R.d[i])return false;
+							}//如果(L,R)區間完全包含o的區間就回傳true
+							return true;
+						}
+						inline bool point_in_range(node *o,const point &L,const point &R){
+							for(int i=0;i<kd;++i){
+								if(L.d[i]>o->pid.d[i]||R.d[i]<o->pid.d[i])return false;
+							}//如果(L,R)區間完全包含o->pid這個點就回傳true
+							return true;
+						}
+						int query(node *o,const point &L,const point &R){
+							if(!o)return -INF;
+							if(range_in_range(o,L,R)){
+								return o->dmax;
+							}
+							int ans=-INF;
+							if(point_in_range(o,L,R)){
+								ans=max(ans,o->data);
+							}//這個點在(L,R)區間，但是他的左右子樹不一定在區間中
+							if(o->l&&range_include(o->l,L,R)){
+								ans=max(ans,query(o->l,L,R));
+							}
+							if(o->r&&range_include(o->r,L,R)){
+								ans=max(nas,query(o->r,L,R));
+							}
+							return ans;
+						}
+						```
+					</script>
+				</section>
+			</section>
+			<section>
+				<section>
+					<h2>k-d tree代替高維線段樹</h2>
+					區間修改(加值)<br/>
+					單點、區間查詢<br/>
+					以二維區間最大值為例
+				</section>
+				<section data-markdown>
+					<script type="text/template">
+						這是高維線段樹無法做到的<br/>
+						而且消耗的記憶體量超少
+						``` cpp
+						struct node{
+							node *l,*r;
+							point pid,mi,ma;
+							int s;
+							int data,dmax;
+							int lz_add;
+							node(const point &p,int d):l(0),r(0),pid(p),mi(p),ma(p),data(d),dmax(d),lz_add(0){}
+							inline void down(){//懶惰標記下推
+								if(lz_add){
+									data+=lz_add;
+									dmax+=lz_add;
+									if(l)l->lz_add+=lz_add;
+									if(r)r->lz_add+=lz_add;
+									lz_add=0;
+								}
+							}
+							inline void up(){
+								mi=ma=pid;
+								if(l){
+									for(int i=0;i<kd;++i){
+										mi.d[i]=min(mi.d[i],l->mi.d[i]);
+										ma.d[i]=max(ma.d[i],l->ma.d[i]);
+									}
+								}
+								if(r){
+									for(int i=0;i<kd;++i){
+										mi.d[i]=min(mi.d[i],r->mi.d[i]);
+										ma.d[i]=max(ma.d[i],r->ma.d[i]);
+									}
+								}
+							}
+							inline void up2(){
+								if(l)l->down();
+								if(r)r->down();
+								dmax=data;
+								if(l)dmax=max(dmax,l->dmax);
+								if(r)dmax=max(dmax,r->dmax);
+							}
+						}*root;
+						```
+					</script>
+				</section>
+				<section data-markdown>
+					<script type="text/template">
+						區間加值
+						``` cpp
+						void update(node *o,const point &L,const point &R,int data){
+							if(!o)return;
+							if(range_in_range(o,L,R)){
+								o->lz_add+=data;
+								o->down();
+								return;
+							}
+							o->down();
+							if(point_in_range(o,L,R)){
+								o->data+=data;
+							}
+							if(o->l&&range_include(o->l,L,R))update(o->l,L,R,data);
+							if(o->r&&range_include(o->r,L,R))update(o->r,L,R,data);
+							o->up2();
+						}
+						```
+					</script>
+				</section>
+				<section data-markdown>
+					<script type="text/template">
+						單點查詢
+						``` cpp
+						int query(node *u,const point &x,int k=0){
+							if(!u)return -INF;
+							u->down();
+							if(u->pid==x){
+								return u->data;
+							}
+							cmp.sort_id=k;
+							if(cmp(x,u->pid))return query(u->l,x,(k+1)%kd);
+							else return query(u->r,x,(k+1)%kd);
+						}
+						```
+					</script>
+				</section>
+				<section data-markdown>
+					<script type="text/template">
+						區間查詢
+						``` cpp
+						int query(node *o,const point &L,const point &R){
+							if(!o)return -INF;
+							o->down();
+							if(range_in_range(o,L,R)){
+								return o->dmax;
+							}
+							int ans=-INF;
+							if(point_in_range(o,L,R)){
+								ans=max(ans,o->data);
+							}
+							if(o->l&&range_include(o->l,L,R))ans=max(ans,query(o->l,L,R));
+							if(o->r&&range_include(o->r,L,R))ans=max(ans,query(o->r,L,R));
+							return ans;
+						}
+						```
+					</script>
+				</section>
+			</section>
+			<section>
+				<h2>複雜度</h2>
+				<div class="theorem">
+					單點修改、單點查詢 的複雜度為\(\ord{log \; n}\)<br/>
+					區間修改、區間查詢 的複雜度為\(\ord{n^{1-1/kd}}\)<br/>
+					但是實際上區間操作的時間不會太慢
+				</div>
+			</section>
+			<section>
+				<section>
+					<h1>例題</h1>
+				</section>
+				<section>
+					<h2><a href="https://uva.onlinejudge.org/index.php?option=com_onlinejudge&Itemid=8&page=show_problem&problem=4558" target="_blank">UVa 1683</a></h2>
+					<div class="prob">
+						<div class="label">題目</div>
+						UVa 1683 - In case of failure
+						<hr/>
+						對平面上，每一個點找到最鄰近點的距離，輸出歐幾里得距離的平方即可。
+					</div>
+				</section>
+				<section data-markdown>
+					<script type="text/template">
+						## 題解
+						這題應該不用題解吧
+					</script>
+				</section>
+				<section>
+					<h2><a href="https://uva.onlinejudge.org/index.php?option=com_onlinejudge&Itemid=8&page=show_problem&problem=2272" target="_blank">UVa 11297</a></h2>
+					<div class="prob">
+						<div class="label">題目</div>
+						UVa 11297 - Census
+						<hr/>
+						給一個二維平面，單點修改區間求min、max
+					</div>
+				</section>
+				<section data-markdown>
+					<script type="text/template">
+						## 題解
+						``` cpp
+						#include<bits/stdc++.h>
+						using namespace std;
+						#define MAXN 500
+						#define kd 2
+						struct point{
+							int d[kd];
+							point(int x,int y){
+								d[0]=x,d[1]=y;
+							}
+							bool operator==(const point &p){
+								return d[0]==p.d[0]&&d[1]==p.d[1];
+							}
+						};
+						struct node{
+							node *l,*r;
+							point pid,mi,ma;
+							int data,dmin,dmax;
+							node(const point &p,int d):l(0),r(0),pid(p),mi(p),ma(p),data(d),dmin(d),dmax(d){}
+							inline void up(){
+								mi=ma=pid;
+								if(l){
+									for(int i=0;i<kd;++i){
+										mi.d[i]=min(mi.d[i],l->mi.d[i]);
+										ma.d[i]=max(ma.d[i],l->ma.d[i]);
+									}
+								}
+								if(r){
+									for(int i=0;i<kd;++i){
+										mi.d[i]=min(mi.d[i],r->mi.d[i]);
+										ma.d[i]=max(ma.d[i],r->ma.d[i]);
+									}
+								}
+							}
+							inline void up2(){
+								dmin=dmax=data;
+								if(l){
+									dmin=min(dmin,l->dmin);
+									dmax=max(dmax,l->dmax);
+								}
+								if(r){
+									dmin=min(dmin,r->dmin);
+									dmax=max(dmax,r->dmax);
+								}
+							}
+						}*root,*A[MAXN*MAXN+5];
+						struct __cmp{
+							int sort_id;
+							inline bool operator()(const node*x,const node*y)const{
+								return operator()(x->pid,y->pid);
+							}
+							inline bool operator()(const point &x,const point &y)const{
+								if(x.d[sort_id]!=y.d[sort_id])
+									return x.d[sort_id]<y.d[sort_id];
+								for(int i=0;i<kd;++i){
+									if(x.d[i]!=y.d[i])return x.d[i]<y.d[i];
+								}
+								return 0;
+							}
+						}cmp;
+						node* build(int k,int l,int r){
+							if(l>r)return 0;
+							if(k==kd)k=0;
+							int mid=(l+r)/2;
+							cmp.sort_id=k;
+							nth_element(A+l,A+mid,A+r+1,cmp);
+							node *ret=A[mid];
+							ret->l=build(k+1,l,mid-1);
+							ret->r=build(k+1,mid+1,r);
+							ret->up();
+							ret->up2();
+							return ret;
+						}
+						void update(node *u,int k,const point &x,int data){
+							if(u->pid==x){
+								u->data=data;
+								u->up2();
+								return;
+							}
+							cmp.sort_id=k;
+							update(cmp(x,u->pid)?u->l:u->r,(k+1)%kd,x,data);
+							u->up2();
+						}
+						inline bool range_include(node *o,const point &L,const point &R){
+							for(int i=0;i<kd;++i){
+								if(L.d[i]>o->ma.d[i]||R.d[i]<o->mi.d[i])return 0;
+							}
+							return 1;
+						}
+						inline bool range_in_range(node *o,const point &L,const point &R){
+							for(int i=0;i<kd;++i){
+								if(L.d[i]>o->mi.d[i]||o->ma.d[i]>R.d[i])return 0;
+							}
+							return 1;
+						}
+						inline bool point_in_range(node *o,const point &L,const point &R){
+							for(int i=0;i<kd;++i){
+								if(L.d[i]>o->pid.d[i]||R.d[i]<o->pid.d[i])return 0;
+							}
+							return 1;
+						}
+						pair<int,int> ans;
+						void query(node *o,const point &L,const point &R){
+							if(!o)return;
+							if(range_in_range(o,L,R)){
+								ans.first=min(ans.first,o->dmin);
+								ans.second=max(ans.second,o->dmax);
+								return;
+							}
+							if(point_in_range(o,L,R)){
+								ans.first=min(ans.first,o->data);
+								ans.second=max(ans.second,o->data);
+							}
+							if(o->l&&range_include(o->l,L,R))query(o->l,L,R);
+							if(o->r&&range_include(o->r,L,R))query(o->r,L,R);
+						}
+						int n,q,d;
+						char s[2];
+						int x,y,x2,y2;
+						int main(){
+							scanf("%d",&n);
+							for(int i=0;i<n;++i){
+								for(int j=0;j<n;++j){
+									scanf("%d",&d);
+									A[i*n+j]=new node(point(i+1,j+1),d);
+								}
+							}
+							root=build(0,0,n*n-1);
+							scanf("%d",&q);
+							while(q--){
+								scanf("%s",s);
+								if(*s=='q'){
+									scanf("%d%d%d%d",&x,&y,&x2,&y2);
+									ans=make_pair(INT_MAX,INT_MIN);
+									query(root,point(x,y),point(x2,y2));
+									printf("%d %d\n",ans.second,ans.first);
+								}else{
+									scanf("%d%d%d",&x,&y,&d);
+									update(root,0,point(x,y),d);
+								}
+							}
+							return 0;
+						}
+						```
+					</script>
+				</section>
+				<section>
+					<h2><a href="https://uva.onlinejudge.org/index.php?option=com_onlinejudge&Itemid=8&page=show_problem&problem=3143" target="_blank">UVa 11992</a></h2>
+					<div class="prob">
+						<div class="label">題目</div>
+						UVa 11992 - Fast Matrix Operations
+						<hr/>
+						給一個二維平面，區間修改區間求sum、min、max
+					</div>
+				</section>
+				<section data-markdown>
+					<script type="text/template">
+						## 題解
+						``` cpp
+						#include<bits/stdc++.h>
+						using namespace std;
+						#define MAXN 1000000
+						#define kd 2
+						struct point{
+							int d[kd];
+							point(int x,int y){
+								d[0]=x,d[1]=y;
+							}
+							bool operator==(const point &p){
+								return d[0]==p.d[0]&&d[1]==p.d[1];
+							}
+						};
+						struct node{
+							node *l,*r;
+							point pid,mi,ma;
+							int s;
+							int data,dmin,dmax,sum;
+							int lz_set,lz_add;
+							node(const point &p,int d):l(0),r(0),pid(p),mi(p),ma(p),data(d),dmin(d),dmax(d),sum(d),lz_set(0),lz_add(0){}
+							inline void down(){
+								if(lz_set){
+									data=dmin=dmax=lz_set;
+									sum=s*lz_set;
+									if(l){
+										l->lz_set=lz_set;
+										l->lz_add=0;
+									}
+									if(r){
+										r->lz_set=lz_set;
+										r->lz_add=0;
+									}
+									lz_set=0;
+								}
+								if(lz_add){
+									data+=lz_add;
+									dmin+=lz_add;
+									dmax+=lz_add;
+									sum+=s*lz_add;
+									if(l)l->lz_add+=lz_add;
+									if(r)r->lz_add+=lz_add;
+									lz_add=0;
+								}
+							}
+							inline void up(){
+								mi=ma=pid;
+								s=1;
+								if(l){
+									for(int i=0;i<kd;++i){
+										mi.d[i]=min(mi.d[i],l->mi.d[i]);
+										ma.d[i]=max(ma.d[i],l->ma.d[i]);
+									}
+									s+=l->s;
+								}
+								if(r){
+									for(int i=0;i<kd;++i){
+										mi.d[i]=min(mi.d[i],r->mi.d[i]);
+										ma.d[i]=max(ma.d[i],r->ma.d[i]);
+									}
+									s+=r->s;
+								}
+							}
+							inline void up2(){
+								if(l)l->down();
+								if(r)r->down();
+								dmin=dmax=sum=data;
+								if(l){
+									dmin=min(dmin,l->dmin);
+									dmax=max(dmax,l->dmax);
+									sum+=l->sum;
+								}
+								if(r){
+									dmin=min(dmin,r->dmin);
+									dmax=max(dmax,r->dmax);
+									sum+=r->sum;
+								}
+							}
+						}*root,*A[MAXN+5];
+						struct __cmp{
+							int sort_id;
+							inline bool operator()(const node*x,const node*y)const{
+								return operator()(x->pid,y->pid);
+							}
+							inline bool operator()(const point &x,const point &y)const{
+								if(x.d[sort_id]!=y.d[sort_id])
+									return x.d[sort_id]<y.d[sort_id];
+								for(int i=0;i<kd;++i){
+									if(x.d[i]!=y.d[i])return x.d[i]<y.d[i];
+								}
+								return 0;
+							}
+						}cmp;
+						node* build(int k,int l,int r){
+							if(l>r)return 0;
+							if(k==kd)k=0;
+							int mid=(l+r)/2;
+							cmp.sort_id=k;
+							nth_element(A+l,A+mid,A+r+1,cmp);
+							node *ret=A[mid];
+							ret->l=build(k+1,l,mid-1);
+							ret->r=build(k+1,mid+1,r);
+							ret->up();
+							return ret;
+						}
+						inline bool range_include(node *o,const point &L,const point &R){
+							for(int i=0;i<kd;++i){
+								if(L.d[i]>o->ma.d[i]||R.d[i]<o->mi.d[i])return 0;
+							}
+							return 1;
+						}
+						inline bool range_in_range(node *o,const point &L,const point &R){
+							for(int i=0;i<kd;++i){
+								if(L.d[i]>o->mi.d[i]||o->ma.d[i]>R.d[i])return 0;
+							}
+							return 1;
+						}
+						inline bool point_in_range(node *o,const point &L,const point &R){
+							for(int i=0;i<kd;++i){
+								if(L.d[i]>o->pid.d[i]||R.d[i]<o->pid.d[i])return 0;
+							}
+							return 1;
+						}
+						void update(node *o,const point &L,const point &R,int tp,int data){
+							if(!o)return;
+							o->down();
+							if(range_in_range(o,L,R)){
+								if(tp==1)o->lz_add+=data;
+								else o->lz_set=data;
+								o->down();
+								return;
+							}
+							if(point_in_range(o,L,R)){
+								if(tp==1)o->data+=data;
+								else o->data=data;
+							}
+							if(o->l&&range_include(o->l,L,R))update(o->l,L,R,tp,data);
+							if(o->r&&range_include(o->r,L,R))update(o->r,L,R,tp,data);
+							o->up2();
+						}
+						struct ANS{
+							int sum,mi,ma;
+						}ans;
+						void query(node *o,const point &L,const point &R){
+							if(!o)return;
+							o->down();
+							if(range_in_range(o,L,R)){
+								ans.mi=min(ans.mi,o->dmin);
+								ans.ma=max(ans.ma,o->dmax);
+								ans.sum+=o->sum;
+								return;
+							}
+							if(point_in_range(o,L,R)){
+								ans.mi=min(ans.mi,o->data);
+								ans.ma=max(ans.ma,o->data);
+								ans.sum+=o->data;
+							}
+							if(o->l&&range_include(o->l,L,R))query(o->l,L,R);
+							if(o->r&&range_include(o->r,L,R))query(o->r,L,R);
+						}
+						int r,c,m,d,tp;
+						int x,y,x2,y2;
+						int main(){
+							while(~scanf("%d%d%d",&r,&c,&m)){
+								for(int i=0;i<r;++i){
+									for(int j=0;j<c;++j){
+										if(A[i*c+j])*A[i*c+j]=node(point(i+1,j+1),0);
+										else A[i*c+j]=new node(point(i+1,j+1),0);
+									}
+								}
+								root=build(0,0,r*c-1);
+								while(m--){
+									scanf("%d",&tp);
+									if(tp!=3){
+										scanf("%d%d%d%d%d",&x,&y,&x2,&y2,&d);
+										update(root,point(x,y),point(x2,y2),tp,d);
+									}else{
+										scanf("%d%d%d%d",&x,&y,&x2,&y2);
+										ans.mi=INT_MAX;
+										ans.ma=INT_MIN;
+										ans.sum=0;
+										query(root,point(x,y),point(x2,y2));
+										printf("%d %d %d\n",ans.sum,ans.mi,ans.ma);
+									}
+								}
+							}
+							return 0;
+						}
+						```
+					</script>
+				</section>
+				<section>
+					<h2><a href="http://tioj.infor.org/problems/1836" target="_blank">[IOI 2013]game</a></h2>
+					<div class="prob">
+						<div class="label">題目</div>
+						[IOI 2013]game
+						<hr/>
+						給一個\(10^9*10^9\)的二維平面，單點修改求區間gcd
+					</div>
+				</section>
+				<section data-markdown>
+					<script type="text/template">
+						## 題解
+						動態插入的k-d樹<br/>
+						[記憶體用量](http://tioj.infor.org/submissions/37934)屌打其他二維線段樹
+						``` cpp
+						#include<bits/stdc++.h>
+						using namespace std;
+						#define kd 2
+						struct point{
+							int d[kd];
+							point(int x,int y){
+								d[0]=x,d[1]=y;
+							}
+							bool operator==(const point &p){
+								return d[0]==p.d[0]&&d[1]==p.d[1];
+							}
+						};
+						struct node{
+							node *l,*r;
+							point pid,mi,ma;
+							long long data,gcd;
+							int s;
+							node(const point &p,long long d):l(0),r(0),pid(p),mi(p),ma(p),data(d),gcd(d),s(1){}
+							inline void up(){
+								s=1;
+								mi=ma=pid;
+								gcd=data;
+								if(l){
+									s+=l->s;
+									for(int i=0;i<kd;++i){
+										mi.d[i]=min(mi.d[i],l->mi.d[i]);
+										ma.d[i]=max(ma.d[i],l->ma.d[i]);
+									}
+									gcd=__gcd(l->gcd,gcd);
+								}
+								if(r){
+									s+=r->s;
+									for(int i=0;i<kd;++i){
+										mi.d[i]=min(mi.d[i],r->mi.d[i]);
+										ma.d[i]=max(ma.d[i],r->ma.d[i]);
+									}
+									gcd=__gcd(r->gcd,gcd);
+								}
+							}
+						}*root;
+						vector<node*> A;
+						struct __cmp{
+							int sort_id;
+							inline bool operator()(const node*x,const node*y)const{
+								return operator()(x->pid,y->pid);
+							}
+							inline bool operator()(const point &x,const point &y)const{
+								if(x.d[sort_id]!=y.d[sort_id])
+									return x.d[sort_id]<y.d[sort_id];
+								for(int i=0;i<kd;++i){
+									if(x.d[i]!=y.d[i])return x.d[i]<y.d[i];
+								}
+								return 0;
+							}
+						}cmp;
+						node* build(int k,int l,int r){
+							if(l>r)return 0;
+							if(k==kd)k=0;
+							int mid=(l+r)/2;
+							cmp.sort_id=k;
+							nth_element(A.begin()+l,A.begin()+mid,A.begin()+r+1,cmp);
+							node *ret=A[mid];
+							ret->l=build(k+1,l,mid-1);
+							ret->r=build(k+1,mid+1,r);
+							ret->up();
+							return ret;
+						}
+						const double alpha=0.75,loga=log2(1.0/alpha);
+						inline int size(node *o){
+							return o?o->s:0;
+						}
+						inline bool isbad(node*o){
+							return size(o->l)>alpha*o->s||size(o->r)>alpha*o->s;
+						}
+						void flatten(node *u,vector<node*>::iterator &it){
+							if(!u)return;
+							flatten(u->l,it);
+							*it=u;
+							flatten(u->r,++it);
+						}
+						bool insert(node*&u,int k,const point &x,long long data,int dep){
+							if(!u){
+								u=new node(x,data);
+								return dep<=0;
+							}
+							if(u->pid==x){
+								u->data=data;
+								u->up();
+								return 0;
+							}
+							cmp.sort_id=k;
+							if(insert(cmp(x,u->pid)?u->l:u->r,(k+1)%kd,x,data,dep-1)){
+								++u->s;
+								if(!isbad(u)){
+									u->up();
+									return 1;
+								}
+								if((int)A.size()<u->s)A.resize(u->s);
+								vector<node*>::iterator it=A.begin();
+								flatten(u,it);
+								u=build(k,0,u->s-1);
+							}
+							u->up();
+							return 0;
+						}
+						inline void insert(const point &x,long long data){
+							insert(root,0,x,data,std::__lg(size(root))/loga);
+						}
+						inline bool range_include(node *o,const point &L,const point &R){
+							for(int i=0;i<kd;++i){
+								if(L.d[i]>o->ma.d[i]||R.d[i]<o->mi.d[i])return 0;
+							}
+							return 1;
+						}
+						inline bool range_in_range(node *o,const point &L,const point &R){
+							for(int i=0;i<kd;++i){
+								if(L.d[i]>o->mi.d[i]||o->ma.d[i]>R.d[i])return 0;
+							}
+							return 1;
+						}
+						inline bool point_in_range(node *o,const point &L,const point &R){
+							for(int i=0;i<kd;++i){
+								if(L.d[i]>o->pid.d[i]||R.d[i]<o->pid.d[i])return 0;
+							}
+							return 1;
+						}
+						long long query(node *o,const point &L,const point &R){
+							if(!o)return 0;
+							if(range_in_range(o,L,R))return o->gcd;
+							long long ans=point_in_range(o,L,R)?o->data:0;
+							if(o->l&&range_include(o->l,L,R))ans=__gcd(ans,query(o->l,L,R));
+							if(o->r&&range_include(o->r,L,R))ans=__gcd(ans,query(o->r,L,R));
+							return ans;
+						}
+						int n;
+						int main(){
+							scanf("%*d%*d%d",&n);
+							while(n--){
+								int c,x1,y1,x2,y2;
+								long long d;
+								scanf("%d",&c);
+								if(c==1){
+									scanf("%d%d%lld",&x1,&y1,&d);
+									insert(point(x1,y1),d);
+								}else{
+									scanf("%d%d%d%d",&x1,&y1,&x2,&y2);
+									printf("%lld\n",query(root,point(x1,y1),point(x2,y2)));
+								}
+							}
+							return 0;
+						}
+						```
+					</script>
+				</section>
+				<section>
+					<h2>接下來一些大陸神題</h2>
+				</section>
+				<section>
+					<h2><a href="http://trinklee.blog.163.com/blog/static/23815806020155278838334/" target="_blank">BZOJ - 4154 Generating Synergy</a></h2>
+					<div class="prob">
+						<div class="label">題目</div>
+						BZOJ - 4154 Generating Synergy
+						<hr/>
+						给定一棵以1为根的有根树,初始所有节点颜色为1,每次将距离节点a不超过l的a的子节点染成c,或询问点a的颜色
+					</div>
+				</section>
+				<section>
+					<h2><a href="http://trinklee.blog.163.com/blog/static/2381580602015422933539/" target="_blank">BZOJ - 3489 A simple rmq problem</a></h2>
+					<div class="prob">
+						<div class="label">題目</div>
+						BZOJ - 3489 A simple rmq problem
+						<hr/>
+						给出一个长度为n的序列，给出M个询问：在[l,r]之间找到一个在这个区间里只出现过一次的数，并且要求找的这个数尽可能大。如果找不到这样的数，则直接输出0。我会采取一些措施强制在线。
+					</div>
 				</section>
 			</section>
 			<!--結束了-->
