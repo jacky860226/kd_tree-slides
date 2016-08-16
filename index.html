@@ -279,6 +279,45 @@
 			</section>
 			<section>
 				<section>
+					<h2>懶惰刪除</h2>
+				</section>
+				<section>
+					找到要刪除的點，打個標記說他已經被刪掉了<br/>
+					並且把他的祖先中跟他相關的資訊抹除掉<br/>
+					這樣就可以在\(\ord{log \; n}\)的時間內完成刪除操作
+				</section>
+				<section data-markdown>
+					<script type="text/template">
+						``` cpp
+						inline int size(node *o){
+							return o?o->s:0;
+						}
+						bool erase(node *&u,int k,const point &x){
+							if(size(u)==0)return 0;
+							if(u->is_exist&&u->pid==x){
+								u->is_exist=false;//刪除標記
+								--u->s;
+								return 1;
+							}
+							cmp.sort_id=k;
+							if(erase(cmp(x,u->pid)?u->l:u->r,(k+1)%kd,x)){
+								--u->s;return 1;
+							}else return 0;
+						}
+						```
+					</script>
+				</section>
+				<section>
+					<h2>注意</h2>
+					<div class="theorem">
+						懶惰刪除會讓 K近鄰算法 的時間複雜度變成\(\ord n\)<br/>
+						其他操作的複雜度不變<br/>
+						K近鄰算法 會在下一節提到
+					</div>
+				</section>
+			</section>
+			<section>
+				<section>
 					<h2>K近鄰算法</h2>
 				</section>
 				<section data-markdown class="theorem">
@@ -400,7 +439,53 @@
 				<section>
 					<h2>複雜度</h2>
 					不管用甚麼方法最差情況還是會搜索到\(\ord{n^{1-1/kd}}\)個點<br/>
-					所以最差複雜度是\(\ord{n^{1-1/kd}}\)
+					所以最差複雜度是\(\ord{n^{1-1/kd}}\)<br/>
+					<div class="theorem">
+						<div class="label">注意</div><br/>
+						如果需要使用 K近鄰算法<br/>
+						千萬別用懶惰刪除<br/>
+						K近鄰算法的複雜度會變\(\ord n\)
+					</div>
+				</section>
+			</section>
+			<section>
+				<section>
+					<h2>區間查找</h2>
+				</section>
+				<section data-markdown>
+					<script type="text/template">
+						給一個高維度矩形空間，查照這個空間所包含的點<br/>
+						印尼賽區有考過這東西(UVA 6045)
+						``` cpp
+						std::vector<point>in_range;
+						void range(node *u,int k,const point&mi,const point&ma){
+							if(!u)return;
+							bool is=1;
+							for(int i=0;i<kd;++i){
+								if(u->pid.d[i]<mi.d[i]||ma.d[i]<u->pid.d[i]){
+									is=0;break;
+								}
+							}
+							if(is)in_range.push_back(u->pid);//在區間內
+							if(mi.d[k]<=u->pid.d[k]){//左子樹有部分和區間相交
+								range(u->l,(k+1)%kd,mi,ma);
+							}
+							if(ma.d[k]>=u->pid.d[k]){//右子樹有部分和區間相交
+								range(u->r,(k+1)%kd,mi,ma);
+							}
+						}
+						inline const std::vector<point> &range(const point&mi,const point&ma){
+							in_range.clear();
+							range(root,0,mi,ma);
+							return in_range;/*回傳介於mi到ma之間的點vector*/ 
+						}
+						```
+					</script>
+				</section>
+				<section>
+					<h2>複雜度</h2>
+					最差情況還是會搜索到\(\ord{n^{1-1/kd}}\)個區間<br/>
+					故最差複雜度是\(\ord{n^{1-1/kd}+P}\)，\(P\)是查找的點的個數
 				</section>
 			</section>
 			<section>
