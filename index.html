@@ -93,7 +93,7 @@
 							node *l,*r;
 							point pid;
 							int s;//節點大小
-							node(const point &p):l(0),r(0),pid(p),s(1){}
+							node(const point &p):l(null),r(null),pid(p),s(1){}
 							inline void up(){
 								s=(l?l->s:0)+1+(r?r->s:0);
 							}
@@ -116,7 +116,7 @@
 								for(size_t i=0;i<kd;++i){
 									if(x.d[i]!=y.d[i])return x.d[i]<y.d[i];
 								}
-								return 0;
+								return false;
 							}
 						}cmp;
 						```
@@ -153,7 +153,7 @@
 						``` cpp
 						std::vector<node*> A;
 						node* build(int k,int l,int r){
-							if(l>r)return 0;
+							if(l>r)return null;
 							if(k==kd)k=0;
 							int mid=(l+r)/2;//分半讓樹保持平衡
 							cmp.sort_id=k;//把優先比較的維度設為k
@@ -199,7 +199,7 @@
 							if(insert(cmp(x,u->pid)?u->l:u->r,x,(k+1)%kd)){
 								++u->s;
 								return true;
-							else return false;
+							}else return false;
 						}
 						```
 					</script>
@@ -234,18 +234,18 @@
 					<script type="text/template">
 						``` cpp
 						node *findmin(node*o,int k){
-							if(!o)return 0; 
+							if(!o)return null; 
 							if(cmp.sort_id==k)return o->l?findmin(o->l,(k+1)%kd):o;
 							node *l=findmin(o->l,(k+1)%kd);
 							node *r=findmin(o->r,(k+1)%kd);
-							if(l&&!r)return cmp(l->pid,o->pid)?l:o;
-							if(!l&&r)return cmp(r->pid,o->pid)?r:o;
+							if(l&&!r)return cmp(l,o)?l:o;
+							if(!l&&r)return cmp(r,o)?r:o;
 							if(!l&&!r)return o;
-							if(cmp(l->pid,r->pid))return cmp(l->pid,o->pid)?l:o;
-							return cmp(r->pid,o->pid)?r:o;
+							if(cmp(l,r))return cmp(l,o)?l:o;
+							return cmp(r,o)?r:o;
 						}
 						bool erase(node *&u,const point &x,int k=0){
-							if(!u)return 0;
+							if(!u)return false;
 							if(u->pid==x){
 								if(u->r);
 								else if(u->l){
@@ -254,15 +254,41 @@
 								}else{
 									delete u;
 									u=0;
-									return 1;
+									return true;
 								}
+								--u->s;
 								cmp.sort_id=k;
 								u->pid=findmin(u->r,(k+1)%kd)->pid;
 								return erase(u->r,u->pid,(k+1)%kd);
 							}
 							cmp.sort_id=k;
-							return erase(cmp(x,u->pid)?u->l:u->r,x,(k+1)%kd);
+							if(erase(cmp(x,u->pid)?u->l:u->r,x,(k+1)%kd)){
+								--u->s;
+								return true;
+							}else return false;
 						}
+						```
+					</script>
+				</section>
+				<section data-markdown>
+					<script type="text/template">
+						另一種比較好寫的findmin
+						``` cpp
+						node *mnp;
+						void findmin(node*o,int k){
+							if(!o)return;
+							if(!mnp||cmp(o,mnp))mnp=o;
+							findmin(o->l,(k+1)%kd);
+							if(cmp.sort_id==k)return;
+							findmin(o->r,(k+1)%kd);
+						}
+						/*
+						找某個維度的最小值取代時這樣就可以了:
+						cmp.sort_id=k;
+						mnp=0;
+						findmin(u->r,(k+1)%kd)->pid;
+						u->pid=mnp;
+						*/
 						```
 					</script>
 				</section>
@@ -292,17 +318,18 @@
 						inline int size(node *o){
 							return o?o->s:0;
 						}
-						bool erase(node *&u,int k,const point &x){
-							if(size(u)==0)return 0;
+						bool erase(node *u,int k,const point &x){
+							if(size(u)==0)return false;
 							if(u->is_exist&&u->pid==x){
 								u->is_exist=false;//刪除標記
 								--u->s;
-								return 1;
+								return true;
 							}
 							cmp.sort_id=k;
 							if(erase(cmp(x,u->pid)?u->l:u->r,(k+1)%kd,x)){
-								--u->s;return 1;
-							}else return 0;
+								--u->s;
+								return true;
+							}else return false;
 						}
 						```
 					</script>
@@ -327,7 +354,7 @@
 						std::priority_queue<std::pair<T,point > >pQ;//用heap來維護前k近的距離
 						int qM;//heap最多可以放幾個點
 						void nearest(node *u,int k,const point &x,T &mndist){
-							if(u==0)return;
+							if(!u)return;
 							T dist=u->pid.dist(x);
 							if(dist<mndist){
 								pQ.push(std::make_pair(dist,u->pid));
@@ -368,7 +395,7 @@
 							return ret;
 						}
 						void nearest(node *u,int k,const point &x,T *h,T &mndist){
-							if(u==0||heuristic(h)>=mndist)return;
+							if(!u||heuristic(h)>=mndist)return;
 							T dist=u->pid.dist(x),old=h[k];
 							if(dist<mndist){
 								pQ.push(std::make_pair(dist,u->pid));
@@ -384,11 +411,11 @@
 							*/
 							if(x.d[k]<u->pid.d[k]){
 								nearest(u->l,(k+1)%kd,x,h,mndist);
-								h[k]=abs(x.d[k]-u->pid.d[k]);//維護heuristic的值
+								h[k]=std::abs(x.d[k]-u->pid.d[k]);//維護heuristic的值
 								nearest(u->r,(k+1)%kd,x,h,mndist);
 							}else{
 								nearest(u->r,(k+1)%kd,x,h,mndist);
-								h[k]=abs(x.d[k]-u->pid.d[k]);//維護heuristic的值
+								h[k]=std::abs(x.d[k]-u->pid.d[k]);//維護heuristic的值
 								nearest(u->l,(k+1)%kd,x,h,mndist);
 							}
 							h[k]=old;//最後記得把heuristic改回原本的狀態
@@ -455,15 +482,16 @@
 				<section data-markdown>
 					<script type="text/template">
 						給一個高維度矩形空間，查照這個空間所包含的點<br/>
-						印尼賽區有考過這東西(UVA 6045)
+						印尼賽區有考過這東西(UVA 6045，必須用懶惰刪除)
 						``` cpp
 						std::vector<point>in_range;
 						void range(node *u,int k,const point&mi,const point&ma){
 							if(!u)return;
-							bool is=1;
+							bool is=true;
 							for(int i=0;i<kd;++i){
 								if(u->pid.d[i]<mi.d[i]||ma.d[i]<u->pid.d[i]){
-									is=0;break;
+									is=false;
+									break;
 								}
 							}
 							if(is)in_range.push_back(u->pid);//在區間內
@@ -517,7 +545,7 @@
 							node *l,*r;
 							point pid,mi,ma;
 							int data,dmax;
-							node(const point &p,int d):l(0),r(0),pid(p),mi(p),ma(p),data(d),dmax(d){}
+							node(const point &p,int d):l(null),r(null),pid(p),mi(p),ma(p),data(d),dmax(d){}
 							inline void up(){
 								mi=ma=pid;
 								if(l){
@@ -624,7 +652,7 @@
 							int s;
 							int data,dmax;
 							int lz_add;
-							node(const point &p,int d):l(0),r(0),pid(p),mi(p),ma(p),data(d),dmax(d),lz_add(0){}
+							node(const point &p,int d):l(null),r(null),pid(p),mi(p),ma(p),data(d),dmax(d),lz_add(0){}
 							inline void down(){//懶惰標記下推
 								if(lz_add){
 									data+=lz_add;
@@ -1291,12 +1319,29 @@
 					</div>
 				</section>
 				<section>
+					<h2>題解</h2>
+					<div class="theorem">
+						把深度、dfs序當成兩個維度，設deep[a]表示a的深度，in[a]表示進入a時a的dfs序，out[a]表示離開a時的dfs序<br/>
+						把所有的點變成(deep[a],in[a])的形式
+						則對[(deep[a],out[a]),(deep[a]+l,in[a])]這個矩形染色即可
+					</div>
+				</section>
+				<section>
 					<h2><a href="http://trinklee.blog.163.com/blog/static/2381580602015422933539/" target="_blank">BZOJ - 3489 A simple rmq problem</a></h2>
 					<div class="prob">
 						<div class="label">題目</div>
 						BZOJ - 3489 A simple rmq problem
 						<hr/>
 						给出一个长度为n的序列，给出M个询问：在[l,r]之间找到一个在这个区间里只出现过一次的数，并且要求找的这个数尽可能大。如果找不到这样的数，则直接输出0。我会采取一些措施强制在线。
+					</div>
+				</section>
+				<section>
+					<h2>題解</h2>
+					<div class="theorem">
+						三維k-d tree區間查詢<br/>
+						每個數a都把它當成三維點座標<br/>
+						(a的位置,a前一次出現的位置,a下一次出現的位置)<br/>
+						這樣做法就很明顯了
 					</div>
 				</section>
 			</section>
